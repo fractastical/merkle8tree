@@ -34,6 +34,15 @@ class OctreeNode:
             index |= 4
         return index
 
+    def depth_of_point(self, point):
+        depth = 0
+        node = self
+        while node and (node.data is None or isinstance(node.data, Point3D)):
+            idx = node.get_child_index(point)
+            node = node.children[idx]
+            depth += 1
+        return depth
+
     def insert(self, point):
         if self.is_leaf():
             if self.data is None:
@@ -111,13 +120,24 @@ def combine_merkle_nodes(left, right):
 
 # Distributed storage mockup
 
-def visualize_points(points):
+def visualize_points(points, octree_root):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
+    
+    # Pre-compute depths
+    depths = [octree_root.depth_of_point(point) for point in points]
+    max_depth = max(depths)
+    
+    # Normalize depths to range 0-1 for color and size adjustments
+    normalized_depths = [depth / max_depth for depth in depths]
+    
     xs = [point.x for point in points]
     ys = [point.y for point in points]
     zs = [point.z for point in points]
-    ax.scatter(xs, ys, zs, c='r', marker='o')  # red o markers for each point
+    colors = [(1-depth, 0, depth) for depth in normalized_depths]  # Color transition: red (shallow) to blue (deep)
+    sizes = [20 * (1-depth) + 5 for depth in normalized_depths]  # Size transition: large (shallow) to small (deep)
+    
+    ax.scatter(xs, ys, zs, c=colors, marker='o', s=sizes)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
@@ -133,9 +153,14 @@ def retrieve_from_distributed_system(identifier):
 # Sample usage
 
 # 1. Generate 12 random 3D points
+# points = [
+#     Point3D(random.randint(0, 100), random.randint(0, 100), random.randint(0, 100), f"data{idx}")
+#     for idx in range(12)
+# ]
+
 points = [
     Point3D(random.randint(0, 100), random.randint(0, 100), random.randint(0, 100), f"data{idx}")
-    for idx in range(12)
+    for idx in range(100)
 ]
 
 # 2. Insert the points into the octree
@@ -159,5 +184,5 @@ for point in points:
 # Outputs the data for the 12 points
 print([point.data for point in points])
 
-visualize_points(points)
+visualize_points(points, root)
 
