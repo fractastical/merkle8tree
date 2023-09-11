@@ -48,6 +48,13 @@ class Octree:
         combined_hashes = ''.join(child.hash for child in self.children if child and child.hash)
         self.hash = compute_hash(combined_hashes)
 
+    def __str__(self, level=0):
+        ret = "\t"*level + self.hash + "\n" if self.hash else ""
+        for child in self.children:
+            if child:
+                ret += child.__str__(level+1)
+        return ret
+
     def visualize(self):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -79,42 +86,31 @@ class OctreeBounds:
         return self.x1 <= point.x < self.x2 and self.y1 <= point.y < self.y2 and self.z1 <= point.z < self.z2
 
     def get_child_index(self, point):
-        mid_x = (self.x1 + self.x2) / 2
-        mid_y = (self.y1 + self.y2) / 2
-        mid_z = (self.z1 + self.z2) / 2
-
-        index = 0
-        if point.x >= mid_x:
-            index |= 1
-        if point.y >= mid_y:
-            index |= 2
-        if point.z >= mid_z:
-            index |= 4
-
-        return index
+        midx, midy, midz = (self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2, (self.z1 + self.z2) / 2
+        idx = 0
+        if point.x >= midx:
+            idx |= 1
+        if point.y >= midy:
+            idx |= 2
+        if point.z >= midz:
+            idx |= 4
+        return idx
 
     def get_child_bounds(self, index):
-        mid_x = (self.x1 + self.x2) / 2
-        mid_y = (self.y1 + self.y2) / 2
-        mid_z = (self.z1 + self.z2) / 2
-
+        midx, midy, midz = (self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2, (self.z1 + self.z2) / 2
         if index & 1:
-            x1, x2 = mid_x, self.x2
+            x1, x2 = midx, self.x2
         else:
-            x1, x2 = self.x1, mid_x
-
+            x1, x2 = self.x1, midx
         if index & 2:
-            y1, y2 = mid_y, self.y2
+            y1, y2 = midy, self.y2
         else:
-            y1, y2 = self.y1, mid_y
-
+            y1, y2 = self.y1, midy
         if index & 4:
-            z1, z2 = mid_z, self.z2
+            z1, z2 = midz, self.z2
         else:
-            z1, z2 = self.z1, mid_z
-
+            z1, z2 = self.z1, midz
         return OctreeBounds(x1, x2, y1, y2, z1, z2)
-
 
 Octree.MAX_DEPTH = 4  # Adjust as necessary
 
@@ -127,6 +123,9 @@ for point in points:
 
 # Visualizing
 octree.visualize()
+
+# Text representation
+print(octree)
 
 # Computing size
 tree_size = asizeof.asizeof(octree)
