@@ -212,13 +212,13 @@ class OctreeBounds:
             z1, z2 = self.z1, midz
         return OctreeBounds(x1, x2, y1, y2, z1, z2)
 
-Octree.MAX_DEPTH = 4  # Adjust as necessary
+Octree.MAX_DEPTH = 10  # Adjust as necessary
 
 # Testing the octree with random data
 points = [Point3D(random.uniform(0, 100), random.uniform(0, 100), random.uniform(0, 100), str(random.randint(0, 1e6))) for _ in range(1000)]
 octree = Octree(OctreeBounds(0, 100, 0, 100, 0, 100))
 
-for _ in range(10):  # example insertions
+for _ in range(80):  # example insertions
     point = Point3D(random.randint(0, 100), random.randint(0, 100), random.randint(0, 100))
     octree.insert(point)
 print(octree)
