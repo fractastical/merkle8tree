@@ -1,5 +1,6 @@
 import hashlib
 import random
+import matplotlib.pyplot as plt
 
 # Define basic structures
 
@@ -110,6 +111,19 @@ def combine_merkle_nodes(left, right):
 
 # Distributed storage mockup
 
+def visualize_points(points):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    xs = [point.x for point in points]
+    ys = [point.y for point in points]
+    zs = [point.z for point in points]
+    ax.scatter(xs, ys, zs, c='r', marker='o')  # red o markers for each point
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    plt.show()
+
+
 def store_to_distributed_system(data_chunk):
     return hashlib.sha256(data_chunk.encode()).hexdigest()
 
@@ -144,3 +158,6 @@ for point in points:
 
 # Outputs the data for the 12 points
 print([point.data for point in points])
+
+visualize_points(points)
+
