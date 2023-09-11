@@ -1,6 +1,7 @@
 import hashlib
 import random
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Define basic structures
 
@@ -70,6 +71,27 @@ class OctreeNode:
             if not self.children[idx]:
                 self.children[idx] = OctreeNode(self.x + ox, self.y + oy, self.z + oz, half)
             self.children[idx].insert(point)
+
+    def textual_representation(self, indent=0):
+        # Helper function to format node's data for display
+        def format_data(data):
+            if isinstance(data, Point3D):
+                return data.data
+            else:
+                return '...'
+
+        # Indentation to show depth
+        prefix = '  ' * indent
+
+        # Node's data
+        output = f"{prefix}{format_data(self.data)}\n"
+
+        # Recurse on children if they exist
+        if self.children:
+            for child in self.children:
+                if child:
+                    output += child.textual_representation(indent + 1)
+        return output
 
     def subdivide(self):
         half = self.size / 2
@@ -150,18 +172,32 @@ def store_to_distributed_system(data_chunk):
 def retrieve_from_distributed_system(identifier):
     return "Sample data for " + identifier
 
-# Sample usage
 
-# 1. Generate 12 random 3D points
+cluster_centers = [
+    Point3D(25, 25, 25, "center1"),
+    Point3D(75, 75, 75, "center2"),
+    Point3D(25, 75, 25, "center3"),
+    Point3D(75, 25, 75, "center4")
+]
+
+# Define number of points per cluster and cluster radius
+points_per_cluster = 25
+cluster_radius = 15
+
+# Generate points clustered around centers
+points = []
+for center in cluster_centers:
+    for _ in range(points_per_cluster):
+        # Generate a random offset from the cluster center
+        offset = np.random.normal(0, cluster_radius, 3)
+        point = Point3D(center.x + offset[0], center.y + offset[1], center.z + offset[2], f"data_{len(points)}")
+        points.append(point)
+
+
 # points = [
 #     Point3D(random.randint(0, 100), random.randint(0, 100), random.randint(0, 100), f"data{idx}")
-#     for idx in range(12)
+#     for idx in range(100)
 # ]
-
-points = [
-    Point3D(random.randint(0, 100), random.randint(0, 100), random.randint(0, 100), f"data{idx}")
-    for idx in range(100)
-]
 
 # 2. Insert the points into the octree
 root = OctreeNode(0, 0, 0, 100)
@@ -182,9 +218,11 @@ for point in points:
         node.data = (merkle_root, storage_identifier)
 
 
-# After generating the points and before visualizing
-for point in points:
-    print(f"Point {point.data} Depth: {root.depth_of_point(point)}")
+# # After generating the points and before visualizing
+# for point in points:
+#     print(f"Point {point.data} Depth: {root.depth_of_point(point)}")
+
+print(root.textual_representation())
 
 visualize_points(points, root)
 
