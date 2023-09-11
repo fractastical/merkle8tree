@@ -3,6 +3,7 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 from pympler import asizeof
+from mpl_toolkits.mplot3d import Axes3D
 
 # Define basic structures
 
@@ -27,9 +28,10 @@ class OctreeNode:
     ]
 
 
-    def __init__(self, x=0, y=0, z=0, size=1):
+    def __init__(self, x=0, y=0, z=0, size=1, metadata=None)):
         self.children = [None] * 8
         self.data = None  # Placeholder for leaf node data
+        self.metadata = metadata  
         self.x = x
         self.y = y
         self.z = z
@@ -87,6 +89,11 @@ class OctreeNode:
             #     print(f"Child node exists. Proceeding to insert {point.data}.")
             
             self.children[idx].insert(point)
+
+    def insert_into_octree(octree, point, data, metadata):
+        node = find_or_create_node_for_point(octree, point)
+        node.data = data
+        node.metadata = metadata  # Attach the GLB reference or other metadata here
 
     def textual_representation(self, indent=0):
         # Helper function to format node's data for display
@@ -252,6 +259,32 @@ for point in points:
 
 
 print(root.textual_representation())
+
+def draw_cube(ax, node):
+    r = [node.x, node.x + node.size]
+    s = [node.y, node.y + node.size]
+    t = [node.z, node.z + node.size]
+
+    for x in r:
+        for y in s:
+            for z in t:
+                ax.scatter(x, y, z, color="b", s=50)
+                if node.data:
+                    ax.text(x, y, z, '%s' % (str(node.data)), size=10, zorder=1, color='k')
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+
+def visualize_octree_3d(node, ax):
+    if node:
+        draw_cube(ax, node)
+        for child in node.children:
+            visualize_octree_3d(child, ax)
+
+# cool concept but too visually crowded
+# visualize_octree_3d(root, ax)
+# plt.show()
 
 # Computing size
 tree_size = asizeof.asizeof(root)
