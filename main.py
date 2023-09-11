@@ -14,6 +14,19 @@ class Point3D:
         self.data = data
 
 class OctreeNode:
+
+    OFFSETS = [
+        (0, 0, 0),
+        (0.5, 0, 0),
+        (0, 0.5, 0),
+        (0.5, 0.5, 0),
+        (0, 0, 0.5),
+        (0.5, 0, 0.5),
+        (0, 0.5, 0.5),
+        (0.5, 0.5, 0.5)
+    ]
+
+
     def __init__(self, x=0, y=0, z=0, size=1):
         self.children = [None] * 8
         self.data = None  # Placeholder for leaf node data
@@ -46,31 +59,33 @@ class OctreeNode:
         return depth
 
     def insert(self, point):
+        # print(f"Inserting {point.data} into node at ({self.x}, {self.y}, {self.z}) with size {self.size}")
+        
         if self.is_leaf():
+            # print(f"Leaf node encountered for {point.data}. Current data: {self.data}")
+            
             if self.data is None:
                 self.data = point
             else:
                 current_point = self.data
                 self.data = None
                 self.subdivide()
+                # print(f"Subdividing for {point.data}. Re-inserting {current_point.data} and {point.data}.")
                 self.insert(current_point)
                 self.insert(point)
         else:
             idx = self.get_child_index(point)
             half = self.size / 2
-            offsets = [
-                (0, 0, 0),
-                (half, 0, 0),
-                (0, half, 0),
-                (half, half, 0),
-                (0, 0, half),
-                (half, 0, half),
-                (0, half, half),
-                (half, half, half)
-            ]
-            ox, oy, oz = offsets[idx]
+            ox, oy, oz = OctreeNode.OFFSETS[idx]
+            
+            # print(f"Child index for {point.data} is {idx}. Checking child node...")
+            
             if not self.children[idx]:
+                # print(f"Child node is None. Creating new node for {point.data}.")
                 self.children[idx] = OctreeNode(self.x + ox, self.y + oy, self.z + oz, half)
+            # else:
+            #     print(f"Child node exists. Proceeding to insert {point.data}.")
+            
             self.children[idx].insert(point)
 
     def textual_representation(self, indent=0):
@@ -78,6 +93,9 @@ class OctreeNode:
         def format_data(data):
             if isinstance(data, Point3D):
                 return f"{data.data} ({indent})"
+            elif isinstance(data, tuple):  # Checks if data is a tuple (merkle_root, storage_identifier)
+                merkle_root, _ = data
+                return f"Hash: {merkle_root.hash} ({indent})"
             else:
                 return '...'
 
@@ -211,27 +229,34 @@ for point in points:
 
 # 3. For each point (object), build a Merkle tree and store the tree's root in the octree
 for point in points:
+    # print(f"Processing point: {point.data}")
     merkle_root = build_merkle_tree([point.data])
     storage_identifier = store_to_distributed_system(point.data)
 
     node = root
-    while node and (node.data is None or isinstance(node.data, Point3D)):
+
+    # while node and (node.data is None or isinstance(node.data, Point3D)):
+    while node and node.is_leaf() == False:
         idx = node.get_child_index(point)
         node = node.children[idx]
-
-    if node:
+    # if node is None:
+    #     print(f"Encountered None node while processing point: {point.data}")
+    #     break
+    # if node.data is not None and not isinstance(node.data, Point3D):
+    #     print(f"Encountered node with Merkle data while processing point: {point.data}")
+    #     break
+    if node and isinstance(node.data, Point3D):
         node.data = (merkle_root, storage_identifier)
+    else:
+        print(f"Failed to find a node for point: {point.data}")
 
-
-# # After generating the points and before visualizing
-# for point in points:
-#     print(f"Point {point.data} Depth: {root.depth_of_point(point)}")
 
 print(root.textual_representation())
 
 # Computing size
 tree_size = asizeof.asizeof(root)
 print(f"Size of the Octree: {tree_size} bytes")
+
 
 visualize_points(points, root)
 
