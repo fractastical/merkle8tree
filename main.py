@@ -126,10 +126,10 @@ def visualize_points(points, octree_root):
     
     # Pre-compute depths
     depths = [octree_root.depth_of_point(point) for point in points]
-    max_depth = max(depths)
+    min_depth, max_depth = min(depths), max(depths)
     
-    # Normalize depths to range 0-1 for color and size adjustments
-    normalized_depths = [depth / max_depth for depth in depths]
+    # Normalize depths to range between min_depth and max_depth for color and size adjustments
+    normalized_depths = [(depth - min_depth) / (max_depth - min_depth) for depth in depths]
     
     xs = [point.x for point in points]
     ys = [point.y for point in points]
@@ -181,8 +181,10 @@ for point in points:
     if node:
         node.data = (merkle_root, storage_identifier)
 
-# Outputs the data for the 12 points
-print([point.data for point in points])
+
+# After generating the points and before visualizing
+for point in points:
+    print(f"Point {point.data} Depth: {root.depth_of_point(point)}")
 
 visualize_points(points, root)
 
