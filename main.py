@@ -229,8 +229,9 @@ for point in points:
 
 print(root.textual_representation())
 
+# Computing size
+tree_size = asizeof.asizeof(root)
+print(f"Size of the Octree: {tree_size} bytes")
+
 visualize_points(points, root)
 
-# Computing size
-tree_size = asizeof.asizeof(octree)
-print(f"Size of the Octree: {tree_size} bytes")
