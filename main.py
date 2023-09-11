@@ -1,11 +1,80 @@
 import hashlib
+import random
 
 # Define basic structures
 
+class Point3D:
+    def __init__(self, x, y, z, data):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.data = data
+
 class OctreeNode:
-    def __init__(self):
+    def __init__(self, x=0, y=0, z=0, size=1):
         self.children = [None] * 8
-        self.data = None  # Placeholder for leaf node data, which will point to a MerkleTree
+        self.data = None  # Placeholder for leaf node data
+        self.x = x
+        self.y = y
+        self.z = z
+        self.size = size
+
+    def is_leaf(self):
+        return all(child is None for child in self.children)
+
+    def get_child_index(self, point):
+        mid_x, mid_y, mid_z = self.x + self.size/2, self.y + self.size/2, self.z + self.size/2
+        index = 0
+        if point.x >= mid_x:
+            index |= 1
+        if point.y >= mid_y:
+            index |= 2
+        if point.z >= mid_z:
+            index |= 4
+        return index
+
+    def insert(self, point):
+        if self.is_leaf():
+            if self.data is None:
+                self.data = point
+            else:
+                current_point = self.data
+                self.data = None
+                self.subdivide()
+                self.insert(current_point)
+                self.insert(point)
+        else:
+            idx = self.get_child_index(point)
+            half = self.size / 2
+            offsets = [
+                (0, 0, 0),
+                (half, 0, 0),
+                (0, half, 0),
+                (half, half, 0),
+                (0, 0, half),
+                (half, 0, half),
+                (0, half, half),
+                (half, half, half)
+            ]
+            ox, oy, oz = offsets[idx]
+            if not self.children[idx]:
+                self.children[idx] = OctreeNode(self.x + ox, self.y + oy, self.z + oz, half)
+            self.children[idx].insert(point)
+
+    def subdivide(self):
+        half = self.size / 2
+        offsets = [
+            (0, 0, 0),
+            (half, 0, 0),
+            (0, half, 0),
+            (half, half, 0),
+            (0, 0, half),
+            (half, 0, half),
+            (0, half, half),
+            (half, half, half)
+        ]
+        for idx, (ox, oy, oz) in enumerate(offsets):
+            self.children[idx] = OctreeNode(self.x + ox, self.y + oy, self.z + oz, half)
 
 class MerkleNode:
     def __init__(self, data=None):
@@ -26,7 +95,7 @@ class MerkleNode:
 def build_merkle_tree(data_list):
     nodes = [MerkleNode(data=d) for d in data_list]
     while len(nodes) > 1:
-        if len(nodes) % 2 == 1:  # Ensure even number of nodes
+        if len(nodes) % 2 == 1:
             nodes.append(None)
         it = iter(nodes)
         nodes = [combine_merkle_nodes(a, b) for a, b in zip(it, it)]
@@ -39,37 +108,39 @@ def combine_merkle_nodes(left, right):
     parent.hash = parent.compute_hash()
     return parent
 
-# Distributed storage mockup (you would replace this with actual distributed storage logic)
+# Distributed storage mockup
 
 def store_to_distributed_system(data_chunk):
-    # This is a mockup; normally, you'd use a system like IPFS to store the data
-    # Return some kind of unique identifier for where the data is stored
     return hashlib.sha256(data_chunk.encode()).hexdigest()
 
 def retrieve_from_distributed_system(identifier):
-    # Mockup retrieval
     return "Sample data for " + identifier
 
 # Sample usage
 
-# 1. Divide 3D data into chunks and build octree (omitted for brevity)
-# 2. For each chunk, build a Merkle tree and store the tree's root in the octree
-# 3. Store each chunk to a distributed storage system, and link it in the octree
+# 1. Generate 12 random 3D points
+points = [
+    Point3D(random.randint(0, 100), random.randint(0, 100), random.randint(0, 100), f"data{idx}")
+    for idx in range(12)
+]
 
-sample_data_chunks = ["data1", "data2", "data3"]
+# 2. Insert the points into the octree
+root = OctreeNode(0, 0, 0, 100)
+for point in points:
+    root.insert(point)
 
-octree = OctreeNode()  # root
-for idx, data_chunk in enumerate(sample_data_chunks):
-    merkle_root = build_merkle_tree([data_chunk])  # This example assumes a Merkle tree for one data chunk only
-    storage_identifier = store_to_distributed_system(data_chunk)
-    
-    # For this simple example, store Merkle root and storage identifier to the first available child of the octree root
-    octree.children[idx] = (merkle_root, storage_identifier)
+# 3. For each point (object), build a Merkle tree and store the tree's root in the octree
+for point in points:
+    merkle_root = build_merkle_tree([point.data])
+    storage_identifier = store_to_distributed_system(point.data)
 
-# To retrieve data from a specific octree leaf:
-leaf_node = octree.children[0]  # adjust as necessary
-merkle_tree, storage_id = leaf_node
-data_from_distributed_system = retrieve_from_distributed_system(storage_id)
-# ... then use the Merkle tree to verify data integrity
+    node = root
+    while node and (node.data is None or isinstance(node.data, Point3D)):
+        idx = node.get_child_index(point)
+        node = node.children[idx]
 
-print(data_from_distributed_system)  # Output: Sample data for (some hash)
+    if node:
+        node.data = (merkle_root, storage_identifier)
+
+# Outputs the data for the 12 points
+print([point.data for point in points])
