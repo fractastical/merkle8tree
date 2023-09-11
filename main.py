@@ -2,8 +2,12 @@ import hashlib
 import random
 import matplotlib.pyplot as plt
 import numpy as np
+from pympler import asizeof
 
 # Define basic structures
+
+def compute_hash(data):
+    return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
 class Point3D:
     def __init__(self, x, y, z, data):
@@ -13,25 +17,34 @@ class Point3D:
         self.data = data
 
 class OctreeNode:
-    def __init__(self, x=0, y=0, z=0, size=1):
-        self.children = [None] * 8
-        self.data = None  # Placeholder for leaf node data
-        self.x = x
-        self.y = y
-        self.z = z
-        self.size = size
+    def __init__(self, bounds):
+        self.bounds = bounds
+        self.data = None
+        self.children = None
+        self.hash = None
 
     def is_leaf(self):
+        if self.children is None:
+            return True
         return all(child is None for child in self.children)
 
+    def compute_node_hash(self):
+        # For leaf nodes
+        if self.data:
+            self.hash = compute_hash(self.data.data)
+        # For non-leaf nodes
+        elif self.children:
+            combined_hashes = ''.join(child.hash for child in self.children if child)
+            self.hash = compute_hash(combined_hashes)
+
     def get_child_index(self, point):
-        mid_x, mid_y, mid_z = self.x + self.size/2, self.y + self.size/2, self.z + self.size/2
+        mid_x, mid_y, mid_z = self.bounds.center
         index = 0
-        if point.x >= mid_x:
+        if point.x > mid_x:
             index |= 1
-        if point.y >= mid_y:
+        if point.y > mid_y:
             index |= 2
-        if point.z >= mid_z:
+        if point.z > mid_z:
             index |= 4
         return index
 
@@ -44,33 +57,39 @@ class OctreeNode:
             depth += 1
         return depth
 
+
     def insert(self, point):
-        if self.is_leaf():
-            if self.data is None:
-                self.data = point
-            else:
-                current_point = self.data
-                self.data = None
-                self.subdivide()
-                self.insert(current_point)
-                self.insert(point)
-        else:
-            idx = self.get_child_index(point)
-            half = self.size / 2
-            offsets = [
-                (0, 0, 0),
-                (half, 0, 0),
-                (0, half, 0),
-                (half, half, 0),
-                (0, 0, half),
-                (half, 0, half),
-                (0, half, half),
-                (half, half, half)
-            ]
-            ox, oy, oz = offsets[idx]
-            if not self.children[idx]:
-                self.children[idx] = OctreeNode(self.x + ox, self.y + oy, self.z + oz, half)
-            self.children[idx].insert(point)
+        # Ensure the point belongs within the node's bounds.
+        if not self.bounds.contains_point(point.x, point.y, point.z):
+            return False
+
+        # If node is a leaf and empty, store the point.
+        if self.is_leaf() and self.data is None:
+            self.data = point
+            self.compute_node_hash()
+            return True
+
+        # If node is a leaf but has a point, subdivide.
+        if self.is_leaf() and self.data is not None:
+            # Store current data
+            existing_point = self.data
+            # Clear current data
+            self.data = None
+            # Subdivide
+            self.subdivide()
+            # Insert the existing point into the correct child
+            for child in self.children:
+                if child.insert(existing_point):
+                    break
+
+        # Insert the new point into the correct child node.
+        for child in self.children:
+            if child.insert(point):
+                return True
+
+        # If all else fails, return False
+        return False
+
 
     def textual_representation(self, indent=0):
         # Helper function to format node's data for display
@@ -98,19 +117,36 @@ class OctreeNode:
         return output
 
     def subdivide(self):
-        half = self.size / 2
-        offsets = [
-            (0, 0, 0),
-            (half, 0, 0),
-            (0, half, 0),
-            (half, half, 0),
-            (0, 0, half),
-            (half, 0, half),
-            (0, half, half),
-            (half, half, half)
+        x, y, z = self.bounds.center
+        d = self.bounds.dimension / 4.0
+        # Note: When creating a new OctreeNode, pass only the bounding box object
+        self.children = [
+            OctreeNode(OctreeBoundingBox(x - d, x, y - d, y, z - d, z)),
+            OctreeNode(OctreeBoundingBox(x, x + d, y - d, y, z - d, z)),
+            OctreeNode(OctreeBoundingBox(x - d, x, y, y + d, z - d, z)),
+            OctreeNode(OctreeBoundingBox(x, x + d, y, y + d, z - d, z)),
+            OctreeNode(OctreeBoundingBox(x - d, x, y - d, y, z, z + d)),
+            OctreeNode(OctreeBoundingBox(x, x + d, y - d, y, z, z + d)),
+            OctreeNode(OctreeBoundingBox(x - d, x, y, y + d, z, z + d)),
+            OctreeNode(OctreeBoundingBox(x, x + d, y, y + d, z, z + d))
         ]
-        for idx, (ox, oy, oz) in enumerate(offsets):
-            self.children[idx] = OctreeNode(self.x + ox, self.y + oy, self.z + oz, half)
+
+
+class OctreeBoundingBox:
+    def __init__(self, x1, x2, y1, y2, z1, z2):
+        self.x1 = x1
+        self.x2 = x2
+        self.y1 = y1
+        self.y2 = y2
+        self.z1 = z1
+        self.z2 = z2
+        self.center = ((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2)
+        self.dimension = max(x2 - x1, y2 - y1, z2 - z1)
+
+    def contains_point(self, x, y, z):
+        return (self.x1 <= x < self.x2 and
+                self.y1 <= y < self.y2 and
+                self.z1 <= z < self.z2)
 
 class MerkleNode:
     def __init__(self, data=None):
@@ -203,8 +239,9 @@ for center in cluster_centers:
 #     for idx in range(100)
 # ]
 
-# 2. Insert the points into the octree
-root = OctreeNode(0, 0, 0, 100)
+# Create a bounding box for the root node
+root_bounds = OctreeBoundingBox(0, 100, 0, 100, 0, 100)
+root = OctreeNode(root_bounds)
 for point in points:
     root.insert(point)
 
@@ -214,12 +251,23 @@ for point in points:
     storage_identifier = store_to_distributed_system(point.data)
 
     node = root
-    while node and (node.data is None or isinstance(node.data, Point3D)):
+    while node:
+        if node.is_leaf():
+            if node.data is None:  # Empty leaf node
+                node.data = (point.x, point.y, point.z, merkle_root, storage_identifier)
+                break
+            else:  # Leaf node with existing data
+                existing_data = node.data
+                node.data = None
+                node.subdivide()  # Ensure this method correctly initializes `children` as a list of 8.
+                # Re-insert the existing data
+                x, y, z, _, _ = existing_data
+                idx_existing = node.get_child_index(Point3D(x, y, z))
+                node.children[idx_existing].data = existing_data
+
+        # Navigate to the appropriate child node for the current point
         idx = node.get_child_index(point)
         node = node.children[idx]
-
-    if node:
-        node.data = (merkle_root, storage_identifier)
 
 
 # # After generating the points and before visualizing
@@ -227,6 +275,12 @@ for point in points:
 #     print(f"Point {point.data} Depth: {root.depth_of_point(point)}")
 
 print(root.textual_representation())
+
+tree_size = asizeof.asizeof(root)
+
+print(f"Merkle root of the octree: {root.hash}")
+
+print(f"Total size of the octree structure: {tree_size} bytes")
 
 visualize_points(points, root)
 
