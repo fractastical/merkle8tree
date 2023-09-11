@@ -76,7 +76,7 @@ class OctreeNode:
         # Helper function to format node's data for display
         def format_data(data):
             if isinstance(data, Point3D):
-                return data.data
+                return f"{data.data} ({indent})"
             else:
                 return '...'
 
@@ -84,13 +84,17 @@ class OctreeNode:
         prefix = '  ' * indent
 
         # Node's data
-        output = f"{prefix}{format_data(self.data)}\n"
+        output = ""
 
-        # Recurse on children if they exist
-        if self.children:
-            for child in self.children:
-                if child:
-                    output += child.textual_representation(indent + 1)
+        # If the node has data or children with data, print its representation
+        if self.data or (self.children and any(child for child in self.children)):
+            output += f"{prefix}{format_data(self.data)}\n"
+
+            # Recurse on children if they exist
+            if self.children:
+                for child in self.children:
+                    if child:
+                        output += child.textual_representation(indent + 1)
         return output
 
     def subdivide(self):
