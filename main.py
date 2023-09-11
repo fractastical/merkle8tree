@@ -28,7 +28,7 @@ class OctreeNode:
     ]
 
 
-    def __init__(self, x=0, y=0, z=0, size=1, metadata=None)):
+    def __init__(self, x=0, y=0, z=0, size=1, metadata=None):
         self.children = [None] * 8
         self.data = None  # Placeholder for leaf node data
         self.metadata = metadata  
@@ -272,8 +272,8 @@ def draw_cube(ax, node):
                 if node.data:
                     ax.text(x, y, z, '%s' % (str(node.data)), size=10, zorder=1, color='k')
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
 
 
 def visualize_octree_3d(node, ax):
