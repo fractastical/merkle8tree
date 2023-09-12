@@ -211,7 +211,7 @@ cluster_centers = [
 ]
 
 # Define number of points per cluster and cluster radius
-points_per_cluster = 25
+points_per_cluster = 70
 cluster_radius = 15
 
 # Generate points clustered around centers
@@ -230,7 +230,7 @@ for center in cluster_centers:
 # ]
 
 # 2. Insert the points into the octree
-root = OctreeNode(0, 0, 0, 100)
+root = OctreeNode(0, 0, 0, 300)
 for point in points:
     root.insert(point)
 
@@ -292,4 +292,49 @@ print(f"Size of the Octree: {tree_size} bytes")
 
 
 visualize_points(points, root)
+
+
+class OctreeHeatmap:
+    
+    @staticmethod
+    def slice_heatmap(root, z_value, resolution=100):
+        # Initialize a 2D grid to store depth values
+        grid = np.zeros((resolution, resolution))
+        
+        # Calculate grid cell dimensions
+        cell_size = root.size / resolution
+        
+        def traverse(node, x, y, z, size, depth):
+            nonlocal grid
+            
+            # Check if the node's 3D cube intersects with the slice at z_value
+            if z <= z_value <= (z + size):
+                # Calculate grid coordinates for this node
+                x_min, y_min = int(x / cell_size), int(y / cell_size)
+                x_max, y_max = int(np.ceil((x + size) / cell_size)), int(np.ceil((y + size) / cell_size))
+                
+                # Update grid cells that overlap with this node
+                grid[y_min:y_max, x_min:x_max] = np.maximum(grid[y_min:y_max, x_min:x_max], depth)
+            
+            # Recursively traverse child nodes
+            if not node.is_leaf():
+                for i, child in enumerate(node.children):
+                    if child is not None:
+                        ox, oy, oz = OctreeNode.OFFSETS[i]
+                        new_x, new_y, new_z = x + ox * size, y + oy * size, z + oz * size
+                        new_size = size / 2
+                        traverse(child, new_x, new_y, new_z, new_size, depth + 1)
+        
+        # Start the traversal from the root
+        traverse(root, root.x, root.y, root.z, root.size, 0)
+        
+        # Display the heatmap
+        plt.imshow(grid, cmap='hot', interpolation='nearest')
+        plt.colorbar(label='Depth')
+        plt.title(f'Octree Slice Heatmap at z={z_value}')
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.show()
+
+OctreeHeatmap.slice_heatmap(root, 25, resolution=100)
 
