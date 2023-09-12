@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pympler import asizeof
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import LinearSegmentedColormap
 
 # Define basic structures
 
@@ -286,13 +287,6 @@ def visualize_octree_3d(node, ax):
 # visualize_octree_3d(root, ax)
 # plt.show()
 
-# Computing size
-tree_size = asizeof.asizeof(root)
-print(f"Size of the Octree: {tree_size} bytes")
-
-
-visualize_points(points, root)
-
 
 class OctreeHeatmap:
     
@@ -328,13 +322,29 @@ class OctreeHeatmap:
         # Start the traversal from the root
         traverse(root, root.x, root.y, root.z, root.size, 0)
         
+        # Custom colormap: transitioning from red to blue
+        colors = [(1, 0, 0), (0, 0, 1)]  # Red to Blue
+        custom_cmap = LinearSegmentedColormap.from_list('custom_red_blue', colors, N=256)
+        
         # Display the heatmap
-        plt.imshow(grid, cmap='hot', interpolation='nearest')
+        plt.imshow(grid, cmap=custom_cmap, interpolation='nearest')
         plt.colorbar(label='Depth')
         plt.title(f'Octree Slice Heatmap at z={z_value}')
         plt.xlabel('X')
         plt.ylabel('Y')
         plt.show()
+
+
+
+# Computing size
+tree_size = asizeof.asizeof(root)
+print(f"Size of the Octree: {tree_size} bytes")
+
+
+visualize_points(points, root)
+
+
+
 
 OctreeHeatmap.slice_heatmap(root, 25, resolution=100)
 
