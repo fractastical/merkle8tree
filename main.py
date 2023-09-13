@@ -5,6 +5,8 @@ import numpy as np
 from pympler import asizeof
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import LinearSegmentedColormap
+import pickle
+import ipfshttpclient
 
 # Define basic structures
 
@@ -37,6 +39,14 @@ class OctreeNode:
         self.y = y
         self.z = z
         self.size = size
+
+    def serialize(self):
+        """Serializes the octree to a bytes object."""
+        return pickle.dumps(self)
+
+    def deserialize(data):
+        """Deserializes the bytes object to recreate the octree."""
+        return pickle.loads(data)
 
     def is_leaf(self):
         return all(child is None for child in self.children)
@@ -123,6 +133,21 @@ class OctreeNode:
                     if child:
                         output += child.textual_representation(indent + 1)
         return output
+
+    def save_octree_to_ipfs(octree_root):
+        """Save a given octree to IPFS and return its Merkle hash."""
+        serialized_data = octree_root.serialize().decode('latin-1')  # Convert bytes to string for Merkle hash computation
+        merkle_root = build_merkle_tree([serialized_data])  # Create Merkle tree
+        with ipfshttpclient.connect() as client:
+            result = client.add_bytes(serialized_data.encode('latin-1'))  # Convert back to bytes for IPFS
+        return merkle_root.hash, result  # Return the Merkle root hash and IPFS hash
+
+    def load_octree_from_ipfs(ipfs_hash):
+        """Retrieve the octree by its IPFS hash and return its root node."""
+        with ipfshttpclient.connect() as client:
+            serialized_data = client.cat(ipfs_hash)
+        return OctreeNode.deserialize(serialized_data)
+
 
     def subdivide(self):
         half = self.size / 2
@@ -343,8 +368,45 @@ print(f"Size of the Octree: {tree_size} bytes")
 
 visualize_points(points, root)
 
+# merkle_hash, ipfs_hash = OctreeNode.save_octree_to_ipfs(root)
+
+# fails with this error https://github.com/ipfs-shipyard/py-ipfs-http-client/issues/329
+# Retrieve the octree from IPFS
+# retrieved_root = load_octree_from_ipfs(ipfs_hash)
+
+# Gives 505
+
+import requests
+import json
+
+API_URL = 'http://127.0.0.1:5001/api/v0'  # Default IPFS API endpoint
+
+def add_to_ipfs(data):
+    response = requests.post(f'{API_URL}/add', files={'file': data})
+    if response.status_code == 200:
+        return json.loads(response.text)['Hash']
+    else:
+        return None
+
+def get_from_ipfs(ipfs_hash):
+    headers = {}
+    response = requests.post(f'{API_URL}/cat', data={'ipfs-path': ipfs_hash}, headers=headers)
+    
+    print("Status Code:", response.status_code)
+    print("Response Text:", response.text)
+    
+    if response.status_code == 200:
+        return response.text
+    else:
+        return None
+
+# # Test
+ipfs_hash = add_to_ipfs("Hello, IPFS!")
+retrieved_data = get_from_ipfs(ipfs_hash)
+
+print("IPFS Hash:", ipfs_hash)
+print("Retrieved Data:", retrieved_data)
 
 
-
-OctreeHeatmap.slice_heatmap(root, 25, resolution=100)
+# OctreeHeatmap.slice_heatmap(root, 25, resolution=100)
 
